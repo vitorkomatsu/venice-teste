@@ -1,0 +1,82 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: src/Venice.Teste.Backend.WebApi/Dockerfile
+    image: venice-api:latest
+    container_name: venice_api
+    environment:
+      # ASP.NET
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      # Connection Strings
+      - ConnectionStrings__ApplicationConnection=Server=sqlserver;Database=syc_erp;User Id=sa;Password=Your_password123;Encrypt=False;TrustServerCertificate=True
+      - ConnectionStrings__MongoConnection=mongodb://mongo:27017
+      # Mongo
+      - Mongo__Database=venice_orders
+      # Redis
+      - ConnectionStrings__Redis=redis:6379
+      # RabbitMQ
+      - RabbitMq__Host=rabbitmq
+      - RabbitMq__Username=guest
+      - RabbitMq__Password=guest
+      # JWT
+      - Jwt__Issuer=venice.local
+      - Jwt__Audience=venice.api
+      - Jwt__Secret=super_secret_dev_key_please_change
+      # Feature Flags
+      - UseInMemoryDatabase=false
+    ports:
+      - "8080:8080"
+    depends_on:
+      - sqlserver
+      - mongo
+      - redis
+      - rabbitmq
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: venice_sql
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=Your_password123
+    ports:
+      - "1433:1433"
+    healthcheck:
+      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost,1433", "-U", "sa", "-P", "Your_password123", "-Q", "SELECT 1", "-No"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mongo:
+    image: mongo:6.0
+    container_name: venice_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: venice_redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: venice_rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+
+volumes:
+  mongo_data:
+  redis_data:
